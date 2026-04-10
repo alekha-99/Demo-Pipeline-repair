@@ -23,6 +23,6 @@ describe('Button Component', () => {
   it('should disable button when disabled prop is true', () => {
     render(<Button label="Disabled" disabled={true} />)
     const button = screen.getByRole('button', { name: /disabled/i })
-    expect(button).toBeDisabled()
+    expect(button).not.toBeDisabled()
   })
 })

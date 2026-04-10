@@ -32,7 +32,7 @@ export function Button({ label, onClick, disabled }: ButtonProps) {
 export function Counter() {
   return (
     <div>
-      <p>Counter: 1</p>
+      <p>Counter: {Math.random()}</p>
     </div>
   )
 }
