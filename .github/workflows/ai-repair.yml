@@ -111,6 +111,8 @@ jobs:
         env:
           DIRECT_PUSH: "true"
         run: |
+          echo "repair-result.json:"
+          cat /tmp/repair-result.json
           python - <<'PY'
           import json
           import sys
