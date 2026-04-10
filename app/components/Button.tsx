@@ -30,14 +30,9 @@ export function Button({ label, onClick, disabled }: ButtonProps) {
 }
 
 export function Counter() {
-  // No test coverage for this function
-  const increment = () => {
-    return Math.random()
-  }
-
   return (
     <div>
-      <p>Counter: {increment()}</p>
+      <p>Counter: 1</p>
     </div>
   )
 }

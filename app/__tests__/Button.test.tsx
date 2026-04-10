@@ -20,11 +20,9 @@ describe('Button Component', () => {
     expect(handleClick).toHaveBeenCalled()
   })
 
-  // Intentional failing test - wrong assertion
   it('should disable button when disabled prop is true', () => {
     render(<Button label="Disabled" disabled={true} />)
     const button = screen.getByRole('button', { name: /disabled/i })
-    // This will fail - button should be disabled but assertion is wrong
-    expect(button).not.toBeDisabled()
+    expect(button).toBeDisabled()
   })
 })
