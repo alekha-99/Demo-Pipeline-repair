@@ -34,7 +34,7 @@ on:
 permissions:
   contents: write
   pull-requests: write
-  actions: read
+  actions: write
 
 concurrency:
   group: ai-repair-${{ github.event.workflow_run.head_branch }}
@@ -64,10 +64,12 @@ jobs:
             echo "run_id=${{ github.event.workflow_run.id }}" >> "$GITHUB_OUTPUT"
             echo "repo_owner=${{ github.repository_owner }}" >> "$GITHUB_OUTPUT"
             echo "repo_name=${{ github.event.repository.name }}" >> "$GITHUB_OUTPUT"
+            echo "target_branch=${{ github.event.workflow_run.head_branch }}" >> "$GITHUB_OUTPUT"
           else
             echo "run_id=${{ inputs.run_id }}" >> "$GITHUB_OUTPUT"
             echo "repo_owner=${{ inputs.owner || github.repository_owner }}" >> "$GITHUB_OUTPUT"
             echo "repo_name=${{ inputs.repo || github.event.repository.name }}" >> "$GITHUB_OUTPUT"
+            echo "target_branch=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Setup Python
@@ -95,6 +97,7 @@ jobs:
           REPO_NAME: ${{ steps.context.outputs.repo_name }}
           REPAIR_PROVIDER: github
           REPAIR_LOG_LEVEL: INFO
+          REPAIR_DIRECT_PUSH: "true"
         run: |
           cd ai-repair
           python -m src.main repair \
@@ -105,10 +108,13 @@ jobs:
 
       - name: Validate repair outcome
         shell: bash
+        env:
+          DIRECT_PUSH: "true"
         run: |
           python - <<'PY'
           import json
           import sys
+          import os
 
           with open('/tmp/repair-result.json', 'r', encoding='utf-8') as f:
             result = json.load(f)
@@ -116,10 +122,20 @@ jobs:
           status = str(result.get('status', '')).lower()
           pr_url = str(result.get('pr_url', '')).strip()
           pr_number = result.get('pr_number')
+          fixes_applied = int(result.get('fixes_applied', 0) or 0)
+          direct_push = os.getenv('DIRECT_PUSH', 'false').strip().lower() in {'1', 'true', 'yes', 'on'}
 
           if status != 'success':
             print(f"Repair did not succeed. status={status}")
             sys.exit(1)
+
+          if fixes_applied <= 0:
+            print('Repair reported success but no fixes were applied.')
+            sys.exit(1)
+
+          if direct_push:
+            print(f"Direct-push repair applied successfully with {fixes_applied} change(s).")
+            sys.exit(0)
 
           if not pr_url or not pr_number:
             print('Repair succeeded technically but no PR was created. Failing workflow to surface skipped/no-op repairs.')
@@ -127,6 +143,19 @@ jobs:
 
           print(f"Repair PR created successfully: #{pr_number} {pr_url}")
           PY
+
+      - name: Trigger CI re-run on repaired branch
+        if: success()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          curl -sS -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            https://api.github.com/repos/${{ steps.context.outputs.repo_owner }}/${{ steps.context.outputs.repo_name }}/actions/workflows/ci.yml/dispatches \
+            -d '{"ref":"${{ steps.context.outputs.target_branch }}"}'
+          echo "Triggered CI workflow_dispatch on branch ${{ steps.context.outputs.target_branch }}"
 
       - name: Upload repair result
         if: always()

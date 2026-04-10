@@ -45,6 +45,10 @@ def _deep_merge(base: dict, overrides: dict) -> dict:
 def _apply_env_overrides(raw: dict[str, Any]) -> dict[str, Any]:
     """Override top-level scalar keys via REPAIR_* environment variables."""
     result = dict(raw)
+
+    def _as_bool(value: str) -> bool:
+        return value.strip().lower() in {"1", "true", "yes", "on"}
+
     if provider_env := os.getenv(f"{_ENV_PREFIX}PROVIDER"):
         result["provider"] = provider_env.lower()
     if model_env := os.getenv(f"{_ENV_PREFIX}AI_MODEL"):
@@ -53,6 +57,8 @@ def _apply_env_overrides(raw: dict[str, Any]) -> dict[str, Any]:
         result.setdefault("ai", {})["engine"] = engine_env.lower()
     if max_attempts := os.getenv(f"{_ENV_PREFIX}MAX_ATTEMPTS"):
         result.setdefault("repair", {})["max_attempts"] = int(max_attempts)
+    if direct_push := os.getenv(f"{_ENV_PREFIX}DIRECT_PUSH"):
+        result.setdefault("repair", {})["direct_push"] = _as_bool(direct_push)
     if log_level := os.getenv(f"{_ENV_PREFIX}LOG_LEVEL"):
         result["logging"] = {"level": log_level}
     return result

@@ -158,6 +158,7 @@ class RepairConfig(BaseModel):
     max_diff_lines: int = 500
     re_run_ci_after_fix: bool = True
     auto_merge: bool = False
+    direct_push: bool = False
 
 
 class HandlerConfig(BaseModel):

@@ -40,6 +40,7 @@ repair:
   max_diff_lines: 500          # refuse to open PR if diff is too large
   re_run_ci_after_fix: true
   auto_merge: false            # NEVER auto-merge by default
+  direct_push: true            # push fixes directly to the failing branch (no PR)
 
 # Failure handlers (enable/disable specific handlers)
 handlers:

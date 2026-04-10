@@ -95,7 +95,7 @@ class RepairAgent:
                 error="AI confidence too low to attempt repair",
             )
 
-        # 5. Clone repo and create fix branch
+        # 5. Clone repo and choose target branch
         with tempfile.TemporaryDirectory(prefix="ai-repair-") as tmpdir:
             repo_root = Path(tmpdir) / pipeline_run.repo_name
             clone_url = self._build_clone_url(pipeline_run)
@@ -106,11 +106,17 @@ class RepairAgent:
                 branch=pipeline_run.branch,
             )
 
-            fix_branch = (
-                f"{self._config.repair.branch_prefix}/"
-                f"{run_id}-{pipeline_run.commit_sha[:7]}"
-            )
-            await git.create_branch(repo_root, fix_branch)
+            direct_push = self._config.repair.direct_push
+            target_branch = pipeline_run.branch
+            fix_branch = ""
+
+            if not direct_push:
+                fix_branch = (
+                    f"{self._config.repair.branch_prefix}/"
+                    f"{run_id}-{pipeline_run.commit_sha[:7]}"
+                )
+                target_branch = fix_branch
+                await git.create_branch(repo_root, fix_branch)
 
             # 6. Run handlers
             all_actions: list[RepairAction] = []
@@ -158,10 +164,21 @@ class RepairAgent:
             await git.commit(repo_root, commit_msg)
             await git.push(
                 repo_root,
-                fix_branch,
+                target_branch,
                 token=self._get_provider_token(),
                 remote_url=clone_url,
             )
+
+            if direct_push:
+                elapsed = time.monotonic() - start
+                return RepairResult(
+                    pipeline_run=pipeline_run,
+                    status=RepairStatus.SUCCESS,
+                    failures_detected=failures,
+                    actions_taken=all_actions,
+                    fix_branch=target_branch,
+                    duration_seconds=round(elapsed, 2),
+                )
 
             # 9. Create PR
             pr_content = await self._ai.generate_pr_description(
