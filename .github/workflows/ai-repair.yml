@@ -103,6 +103,31 @@ jobs:
             --repo "$REPO_NAME" \
             | tee /tmp/repair-result.json
 
+      - name: Validate repair outcome
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import sys
+
+          with open('/tmp/repair-result.json', 'r', encoding='utf-8') as f:
+            result = json.load(f)
+
+          status = str(result.get('status', '')).lower()
+          pr_url = str(result.get('pr_url', '')).strip()
+          pr_number = result.get('pr_number')
+
+          if status != 'success':
+            print(f"Repair did not succeed. status={status}")
+            sys.exit(1)
+
+          if not pr_url or not pr_number:
+            print('Repair succeeded technically but no PR was created. Failing workflow to surface skipped/no-op repairs.')
+            sys.exit(1)
+
+          print(f"Repair PR created successfully: #{pr_number} {pr_url}")
+          PY
+
       - name: Upload repair result
         if: always()
         uses: actions/upload-artifact@v4
